@@ -7,12 +7,13 @@ export default [
   {
     languageOptions: {
       parserOptions: {
-        project: true,
+        project: ["./tsconfig.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },
   },
   {
-    ignores: ["node_modules/**", "dist/**"],
+    ignores: ["node_modules/**", "dist/**", "eslint.config.mjs"],
   },
 ];
+
