@@ -1,6 +1,13 @@
 import pg from 'pg';
 import type { Todo } from '../types.js';
 
+type TodoRow = {
+  id: number;
+  title: string;
+  finished: boolean;
+  created: Date;
+};
+
 /**
  * Gets a PostgreSQL connection pool.
  * @returns Connection pool
@@ -52,17 +59,28 @@ async function query<T extends pg.QueryResultRow>(
  * Initialize the database by creating necessary table.
  * @returns True if the initialization succeeded, false otherwise.
  */
+function rowToTodo(row: TodoRow): Todo {
+  return {
+    id: row.id,
+    title: row.title,
+    finished: row.finished,
+    created: row.created,
+  };
+}
 export async function init(): Promise<boolean> {
   // búum til töfluna okkar ef hún er ekki til
   // SQL til þess:
-  /*
-  CREATE TABLE IF NOT EXISTS todos (
+  const res = await query(
+    `
+    CREATE TABLE IF NOT EXISTS todos (
       id SERIAL PRIMARY KEY,
       title VARCHAR(255) NOT NULL,
       finished BOOLEAN NOT NULL DEFAULT false,
-      created TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      created TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
     )
-  */
+    `,
+  );
+  return res !== null;
 }
 
 /**
@@ -70,7 +88,15 @@ export async function init(): Promise<boolean> {
  * @returns All todo items, or null on error.
  */
 export async function listTodos(): Promise<Todo[] | null> {
-  // SELECT id, title, finished FROM todos ORDER BY finished ASC, created DESC
+  const res = await query<TodoRow>(
+    `
+    SELECT id, title, finished, created
+    FROM todos
+    ORDER BY finished ASC, created DESC
+    `,
+  );
+  if (!res) return null;
+  return res.rows.map(rowToTodo);
 }
 
 /**
@@ -79,7 +105,14 @@ export async function listTodos(): Promise<Todo[] | null> {
  * @returns Created todo item or null on error.
  */
 export async function createTodo(title: string): Promise<Todo | null> {
-  // INSERT INTO todos (title) VALUES ($1) RETURNING id, title, finished
+  const res = await query<TodoRow>(
+  'INSERT INTO todos (title) VALUES ($1) RETURNING id, title, finished, created',
+  [title],
+);
+if (res === null) return null;
+if (res.rowCount !== 1) return null;
+return rowToTodo(res.rows[0]);
+
 }
 
 /**
@@ -94,7 +127,14 @@ export async function updateTodo(
   title: string,
   finished: boolean,
 ): Promise<Todo | null> {
-  // UPDATE todos SET title = $1, finished = $2 WHERE id = $3 RETURNING id, title, finished
+  const res = await query<TodoRow>(
+  'UPDATE todos SET title = $1, finished = $2 WHERE id = $3 RETURNING id, title, finished,created',
+  [title, finished, id],
+  );
+
+  if (res === null) return null;
+  if (res.rowCount !== 1) return null;
+return rowToTodo(res.rows[0]);
 }
 
 /**
@@ -103,7 +143,12 @@ export async function updateTodo(
  * @returns True if the todo item was deleted, false if not found, or null on error.
  */
 export async function deleteTodo(id: number): Promise<boolean | null> {
-  // DELETE FROM todos WHERE id = $1
+  const res = await query<{ id: number }>(
+  ' DELETE FROM todos WHERE id = $1 RETURNING id',
+   [id],
+  );
+  if (!res) return null;
+  return res.rowCount === 1;
 }
 
 /**
@@ -111,5 +156,9 @@ export async function deleteTodo(id: number): Promise<boolean | null> {
  * @returns Number of deleted todo items, or null on error.
  */
 export async function deleteFinishedTodos(): Promise<number | null> {
-  // DELETE FROM todos WHERE finished = true
+  const res = await query<{ id: number }>(
+  `DELETE FROM todos WHERE finished = true RETURNING id`,
+  );
+  if (!res) return null;
+  return res.rowCount;
 }
