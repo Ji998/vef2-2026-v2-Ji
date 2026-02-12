@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { TodoPage } from './components/TodoPage.js';
-import { init, listTodos, createTodo, deleteTodo , updateTodo} from './lib/db.js';
+import { init, listTodos, createTodo, deleteTodo , updateTodo,deleteFinishedTodos} from './lib/db.js';
 import {TodoTitleSchema} from'./lib/validation.js';
 
 
@@ -54,6 +54,16 @@ app.post('/add', async (c) => {
 
   return c.redirect('/');
 });
+app.post('/delete/finished',async(c) => {
+  await init(); 
+  
+  const deletedCount=await deleteFinishedTodos();
+  if(deletedCount==null){
+    return c.html('Database error',500);
+  }
+  return c.redirect('/');
+
+})
 
 app.post('/delete/:id', async (c) => {
   await init();
@@ -74,7 +84,6 @@ app.post('/delete/:id', async (c) => {
 
 app.post('/toggle/:id',async(c)=>{
   await init();
-  console.log('toggle param id =', c.req.param('id'));
   
   const id= Number(c.req.param('id'));
   if(!Number.isFinite(id)) return c.html('Wrong id' ,400);
@@ -93,3 +102,28 @@ app.post('/toggle/:id',async(c)=>{
 
 
 })
+
+app.notFound((c) => {
+  return c.html(
+    <html lang="en">
+      <head>
+        <meta charSet="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>404</title>
+        <link rel="stylesheet" href="/static/styles.css" />
+      </head>
+      <body>
+        <main>
+          <section>
+            <h1>404</h1>
+            <p>fann ekkert hérna</p>
+            <a href="/">Til baka</a>
+          </section>
+        </main>
+      </body>
+    </html>,
+    404,
+  );
+});
+
+

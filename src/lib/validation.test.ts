@@ -12,6 +12,5 @@ void test('TodoTitleSchema: accepts trimmed non-empty title', () => {
   const r = TodoTitleSchema.safeParse('  milk  ');
   assert.equal(r.success, true);
 
-  // after the assert above, TS may treat r.success as always true
   assert.equal(r.data, 'milk');
 });
